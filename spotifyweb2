@@ -755,6 +755,88 @@ img{-webkit-user-drag:none;user-drag:none;pointer-events:auto}
 .pd-bar-fill{background:#fff!important}
 .pd-bar:hover .pd-bar-fill{background:#1ed760!important}
 
+/* ══════════════════════════════════════════════════════════
+   POLISH v4 — Spotify-like: artist grid + discografia tidy
+   (apenas CSS — preserva 100% da lógica)
+═══════════════════════════════════════════════════════════ */
+/* Artistas — cards circulares, uniformes, tipo Spotify */
+.artists-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))!important;gap:1rem!important}
+.artists-grid .card{
+  background:#181818!important;border:1px solid rgba(255,255,255,.04)!important;
+  border-radius:10px!important;padding:1rem .75rem!important;text-align:center!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;
+  transition:background .2s!important;
+}
+.artists-grid .card:hover{background:#232323!important}
+.artists-grid .card-img{
+  width:100%!important;max-width:150px!important;aspect-ratio:1!important;height:auto!important;
+  border-radius:50%!important;object-fit:cover!important;
+  margin:0 auto .85rem!important;display:block!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.55)!important;
+}
+.artists-grid .card-badge{
+  align-self:center!important;margin:.1rem 0 .25rem!important;
+  background:rgba(162,56,255,.14)!important;color:#b85fff!important;
+  font-size:.55rem!important;padding:.18rem .5rem!important;border-radius:4px!important;
+}
+.artists-grid .card-title{
+  font-size:.92rem!important;font-weight:700!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  width:100%!important;margin-bottom:.15rem!important;min-height:0!important;
+}
+.artists-grid .card-sub{
+  font-size:.72rem!important;color:var(--sub)!important;
+  display:block!important;-webkit-line-clamp:unset!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  width:100%!important;
+}
+/* Play button do artista — centralizado sobre o avatar */
+.artists-grid .card-play{
+  position:absolute!important;
+  top:auto!important;bottom:auto!important;
+  left:50%!important;right:auto!important;
+  transform:translate(-50%,calc(-100% - 1rem)) scale(.92)!important;
+  width:44px!important;height:44px!important;border-radius:50%!important;
+  background:#1db954!important;color:#000!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.55)!important;
+  opacity:0;transition:opacity .18s,transform .18s,background .15s!important;
+}
+.artists-grid .card{position:relative!important}
+.artists-grid .card:hover .card-play{
+  opacity:1!important;
+  transform:translate(-50%,calc(-100% - 1rem)) scale(1)!important;
+}
+.artists-grid .card-play:hover{background:#1ed760!important}
+
+/* Mobile: 2 colunas com avatares menores (não estourar a tela) */
+@media(max-width:800px){
+  .artists-grid{grid-template-columns:repeat(2,1fr)!important;gap:.6rem!important}
+  .artists-grid .card{padding:.85rem .55rem!important}
+  .artists-grid .card-img{max-width:130px!important}
+  .artists-grid .card-play{opacity:1!important;transform:translate(-50%,calc(-100% - .75rem)) scale(1)!important;width:40px!important;height:40px!important}
+  .artists-grid .card-title{font-size:.85rem!important}
+  .artists-grid .card-sub{font-size:.7rem!important}
+}
+@media(max-width:380px){
+  .artists-grid{grid-template-columns:repeat(2,1fr)!important;gap:.5rem!important}
+  .artists-grid .card{padding:.7rem .4rem!important}
+  .artists-grid .card-img{max-width:110px!important}
+  .artists-grid .card-play{width:36px!important;height:36px!important}
+}
+
+/* Discografia: badges por tipo (Álbum / Single / EP / Compilação) */
+.card-badge.cb-single{background:rgba(30,215,96,.18)!important;color:#1ed760!important}
+.card-badge.cb-ep{background:rgba(255,184,0,.18)!important;color:#ffb800!important}
+.card-badge.cb-compile{background:rgba(120,180,255,.18)!important;color:#7eb6ff!important}
+
+/* Garante grade de discografia consistente no mobile */
+@media(max-width:800px){
+  #ap-alb-grid{grid-template-columns:repeat(2,1fr)!important;gap:.55rem!important}
+}
+@media(min-width:801px){
+  #ap-alb-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))!important}
+}
+
 </style>
 </head>
 <body>
@@ -924,6 +1006,27 @@ function fmt(s){if(!s||isNaN(s))return'0:00';s=Math.floor(s);return`${Math.floor
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function fmtFans(n){if(!n)return'';if(n>=1e6)return`${(n/1e6).toFixed(1)}M fãs`;if(n>=1e3)return`${Math.round(n/1e3)}K fãs`;return`${n} fãs`}
 function imgErr(el){el.src=BLANK}
+/* Detecta tipo de lançamento estilo Spotify (Álbum/Single/EP/Compilação).
+   Usa record_type da Deezer quando disponível; caso contrário, heurística
+   baseada em nb_tracks (Single ≤2, EP 3–6, Álbum 7+). */
+function albumKind(a){
+  const nt=Number(a.nb_tracks||a.tracks_n||a.tracks||0)||0;
+  const rt=String(a.record_type||a.type_release||'').toLowerCase();
+  if(rt==='single')   return {label:'Single',     cls:'cb-single',  tracks:nt};
+  if(rt==='ep')       return {label:'EP',         cls:'cb-ep',      tracks:nt};
+  if(rt==='compile')  return {label:'Compilação', cls:'cb-compile', tracks:nt};
+  if(rt==='album')    return {label:'Álbum',      cls:'cb-album',   tracks:nt};
+  if(nt>0&&nt<=2)     return {label:'Single',     cls:'cb-single',  tracks:nt};
+  if(nt>=3&&nt<=6)    return {label:'EP',         cls:'cb-ep',      tracks:nt};
+  return {label:'Álbum', cls:'cb-album', tracks:nt};
+}
+function albumSubMeta(a){
+  const k=albumKind(a);
+  const parts=[];
+  if(a.year) parts.push(a.year);
+  if(k.tracks>0) parts.push(k.tracks+(k.tracks===1?' faixa':' faixas'));
+  return parts.join(' · ');
+}
 
 async function checkHealth(){
   try{
@@ -1198,7 +1301,7 @@ function renderSearch(data){
   html+=`<div class="sr-panel${_srTab==='albums'?'':' sr-hidden'}" id="srp-albums">`;
   if(albums.length){
     html+=`<div class="cards-grid">`;
-    albums.forEach(al=>{const nt=al.nb_tracks||al.tracks_n||al.tracks||0;const extra=[al.year||'',nt?nt+' faixas':''].filter(Boolean).join(' · ');html+=`<div class="card" data-album-id="${al.id}"><img class="card-img" src="${esc(al.cover_xl||al.cover)}" onerror="imgErr(this)" loading="lazy"/><button class="card-play">▶</button><div class="card-badge cb-album">Álbum</div><div class="card-title">${esc(al.title)}</div><div class="card-sub"><span class="clickable" data-artist-id="${al.artist_id||''}">${esc(al.artist)}</span>${extra?' · '+extra:''}</div></div>`});
+    albums.forEach(al=>{const k=albumKind(al);const meta=albumSubMeta(al);html+=`<div class="card" data-album-id="${al.id}"><img class="card-img" src="${esc(al.cover_xl||al.cover)}" onerror="imgErr(this)" loading="lazy"/><button class="card-play">▶</button><div class="card-badge ${k.cls}">${k.label}</div><div class="card-title">${esc(al.title)}</div><div class="card-sub"><span class="clickable" data-artist-id="${al.artist_id||''}">${esc(al.artist)}</span>${meta?' · '+meta:''}</div></div>`});
     html+=`</div>`;
   }
   html+=`</div>`;
@@ -1354,9 +1457,32 @@ async function openArtist(artistId){
     document.getElementById('ap-top-list').innerHTML=thtml||'<div style="padding:1rem;color:var(--sub)">Nenhuma faixa</div>';
     document.querySelectorAll('#ap-top-list .chi[data-idx]').forEach(el=>{el.addEventListener('click',()=>playIdx(parseInt(el.dataset.idx)))});
     let ahtml='';
-    (d.albums||[]).forEach(a=>{ahtml+=`<div class="card" data-album-id="${a.id}"><img class="card-img" src="${esc(a.cover_xl||a.cover)}" onerror="imgErr(this)" loading="lazy"/><button class="card-play">▶</button><div class="card-badge cb-album">Álbum</div><div class="card-title">${esc(a.title)}</div><div class="card-sub">${a.year||''} · ${a.tracks_n||0} faixas</div></div>`});
+    (d.albums||[]).forEach(a=>{const k=albumKind(a);const meta=albumSubMeta(a)||(a.year||'');ahtml+=`<div class="card" data-album-id="${a.id}"><img class="card-img" src="${esc(a.cover_xl||a.cover)}" onerror="imgErr(this)" loading="lazy"/><button class="card-play">▶</button><div class="card-badge ${k.cls}">${k.label}</div><div class="card-title">${esc(a.title)}</div><div class="card-sub">${meta||'—'}</div></div>`});
     document.getElementById('ap-alb-grid').innerHTML=ahtml||'<div style="padding:1rem;color:var(--sub);grid-column:1/-1">Sem álbuns</div>';
     document.querySelectorAll('#ap-alb-grid .card[data-album-id]').forEach(el=>{el.addEventListener('click',()=>openAlbum(el.dataset.albumId))});
+    /* Enriquecimento Spotify-like: busca nb_tracks + record_type quando faltar,
+       atualizando badge (Álbum/Single/EP) e legenda "N faixas" em segundo plano. */
+    (async()=>{
+      const cards=[...document.querySelectorAll('#ap-alb-grid .card[data-album-id]')];
+      const need=(d.albums||[]).filter(a=>!a.record_type||!(a.nb_tracks||a.tracks_n||a.tracks));
+      if(!need.length)return;
+      const CONC=4;let i=0;
+      async function worker(){
+        while(i<need.length){
+          const a=need[i++];
+          try{
+            const r=await fetch(`/album/${a.id}`);if(!r.ok)continue;
+            const det=await r.json();
+            const merged={...a,nb_tracks:det.nb_tracks||det.tracks_n||(det.tracks?det.tracks.length:0)||0,record_type:det.record_type||a.record_type,year:a.year||(det.release_date||'').slice(0,4)};
+            const k=albumKind(merged);const meta=albumSubMeta(merged)||(merged.year||'');
+            const card=cards.find(c=>c.dataset.albumId==String(a.id));if(!card)continue;
+            const badge=card.querySelector('.card-badge');if(badge){badge.className='card-badge '+k.cls;badge.textContent=k.label}
+            const sub=card.querySelector('.card-sub');if(sub)sub.textContent=meta||'—';
+          }catch(_){/* silencioso */}
+        }
+      }
+      await Promise.all(Array.from({length:CONC},worker));
+    })();
     updateActiveUI();
   }catch(e){
     document.getElementById('ap-name').textContent='Erro';document.getElementById('ap-meta').textContent=e.message;
